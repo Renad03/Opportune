@@ -1,38 +1,26 @@
-.App {
-  text-align: center;
+:root {
+  --slate-blue: #5C7E8F;
+  --medium-gray: #A2A2A2;
+  --light-gray: #D4DDE2;
+  --white: #FFFFFF;
+  --glass-bg: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(212, 221, 226, 0.2);
+  height: 100%;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+/* Custom button to match your palette */
+.btn-slate {
+  background-color: var(--slate-blue);
+  color: white;
+  border: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
+.btn-slate:hover {
+  background-color: #4a6675;
   color: white;
 }
 
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.btn-outline-slate {
+  border: 1px solid var(--slate-blue);
+  color: var(--slate-blue);
 }
