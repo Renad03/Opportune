@@ -1,38 +1,265 @@
-.App {
-  text-align: center;
+/* src/App.css */
+
+/* =========================================
+   1. Bootstrap & Fonts
+   ========================================= */
+@import url('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css');
+@import url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css');
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #F5F7FA;
+  color: #102A43;
+  margin: 0;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
+/* =========================================
+   2. YOUR OLD DESIGN (Navy Theme)
+   ========================================= */
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+/* Hero Section */
+.hero-section {
+  background: linear-gradient(to right, #0B1C2D, #102A43); /* The Gradient you wanted */
+  min-height: 320px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  color: white; /* Ensure text is white */
 }
 
-.App-link {
-  color: #61dafb;
+/* Hero subtitle */
+.text-white-75 {
+  color: rgba(255, 255, 255, 0.75) !important;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Hero inputs */
+.hero-input {
+  border: none;
+  background-color: #F5F7FA;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.hero-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(11, 28, 45, 0.15);
+  background-color: #ffffff;
+}
+
+/* Search Bar */
+.search-bar {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Cards */
+.card {
+  border-radius: 14px;
+  border: none;
+  background-color: #ffffff;
+}
+
+.hover-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hover-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 1rem 2rem rgba(11, 28, 45, 0.15) !important;
+}
+
+/* Buttons */
+.btn { border-radius: 10px; font-weight: 500; }
+
+.btn-primary { background-color: #0B1C2D; border-color: #0B1C2D; }
+.btn-primary:hover { background-color: #102A43; border-color: #102A43; }
+
+.btn-outline-primary { color: #0B1C2D; border-color: #0B1C2D; }
+.btn-outline-primary:hover { background-color: #0B1C2D; color: #ffffff; }
+
+/* Badges */
+.badge {
+  padding: 0.45em 0.85em;
+  border-radius: 8px;
+  font-weight: 500;
+  background-color: #E6EDF5;
+  color: #0B1C2D;
+}
+
+/* Navbar */
+.navbar { background-color: #ffffff; border-bottom: 1px solid #E5E7EB; }
+.navbar-brand { font-weight: 700; color: #0B1C2D !important; cursor: pointer; }
+.nav-link { font-weight: 500; color: #6B7280; transition: color 0.2s ease; cursor: pointer; }
+.nav-link:hover, .nav-link.active { color: #0B1C2D; }
+
+/* Footer */
+footer { background-color: #0B1C2D; color: #CBD5E1; }
+
+/* ===== Navy Palette Variables ===== */
+:root {
+  --navy-900: #0B1C2D;
+  --navy-800: #102A43;
+  --navy-700: #1E3A5F;
+  --navy-100: #E6EDF5;
+  --navy-muted: #6B7280;
+}
+
+/* Badge Variations */
+.badge-navy { background-color: var(--navy-100); color: var(--navy-900); }
+.badge-beginner { background-color: #E6EDF5; color: #0B1C2D; }
+.badge-intermediate { background-color: #DBEAFE; color: #1E3A5F; }
+.badge-advanced { background-color: #E0E7FF; color: #312E81; }
+
+/* Application Status Colors */
+.status-applied { background-color: #E6EDF5; color: #0B1C2D; }
+.status-interview { background-color: #DBEAFE; color: #1E3A5F; }
+.status-offer { background-color: #DCFCE7; color: #065F46; }
+.status-rejected { background-color: #FEE2E2; color: #7F1D1D; }
+
+/* =========================================
+   3. LOGIN / SIGNUP STYLES (New additions)
+   ========================================= */
+.auth-container {
+  background-color: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  margin: 50px auto;
+}
+.auth-input {
+  padding: 12px; border: 1px solid #ddd; border-radius: 6px; width: 100%; margin-bottom: 10px;
+}
+.auth-button {
+  padding: 12px; background-color: #0B1C2D; color: white; border: none; border-radius: 6px; width: 100%; font-weight: bold; cursor: pointer;
+}
+.auth-button:hover { background-color: #163A5F; }
+.separator { display: flex; align-items: center; text-align: center; margin: 20px 0; color: #666; }
+.separator::before, .separator::after { content: ''; flex: 1; border-bottom: 1px solid #ddd; }
+.separator span { padding: 0 10px; }
+.social-btn {
+  display: flex; align-items: center; justify-content: center; width: 100%; padding: 10px; margin-bottom: 10px;
+  border-radius: 6px; border: 1px solid #ddd; background-color: white; cursor: pointer;
+}
+.google-btn:hover { background-color: #f8f9fa; }
+.github-btn { background-color: #24292e; color: white; border: none; }
+
+/* =========================================
+   FULL WIDTH PROFILE PAGE (DESKTOP STYLE)
+   ========================================= */
+
+.profile-container {
+  width: 100%;        /* Full width */
+  max-width: 100%;    /* Remove the old 600px limit */
+  margin: 0;
+  background-color: white;
+  min-height: 100vh;
+  border: none;
+}
+
+.cover-photo {
+  background: linear-gradient(135deg, #0B1C2D 0%, #2F80ED 100%);
+  height: 280px;      /* Increased height for large screens */
+  width: 100%;
+}
+
+/* Container to keep content centered and neat (Standard Web Container) */
+.profile-content-wrapper {
+  max-width: 1200px;  /* Standard website max-width */
+  margin: 0 auto;     /* Center the container */
+  position: relative;
+}
+
+.profile-nav {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  min-height: 70px;
+}
+
+.profile-pic-container {
+  position: absolute;
+  top: -80px;         /* Move image up to overlap cover */
+  left: 30px;
+}
+
+.profile-pic {
+  width: 160px;       /* Larger profile picture for desktop */
+  height: 160px;
+  border-radius: 50%;
+  border: 5px solid white;
+  object-fit: cover;
+  background-color: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.profile-info {
+  padding: 10px 30px;
+  margin-top: 10px;
+}
+
+.profile-info h2 {
+  font-size: 2.2rem; /* Larger font size */
+}
+
+/* Improve section styling (About, Skills, Experience) */
+.profile-section-card {
+  background-color: white;
+  padding: 0 30px;
+  margin-bottom: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.profile-meta span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  margin-right: 20px;
+}
+
+.profile-meta a { color: #1D9BF0; text-decoration: none; }
+
+/* New Content Section */
+.profile-content h5 {
+  font-size: 18px;
+  color: #0f1419;
+}
+
+/* Skills Styling */
+.badge {
+  font-weight: 500;
+  font-size: 14px;
+}
+/* =========================================
+   SIMPLE NAVBAR AVATAR
+   ========================================= */
+
+.profile-nav-item {
+  cursor: pointer;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.profile-nav-item:hover {
+  opacity: 0.8;
+}
+
+.profile-avatar-simple {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e1e4e8; /* Subtle gray border */
+}
+
+/* Optional: Add a simple dark border if you are on the profile page */
+.avatar-active-border {
+  border: 2px solid #0B1C2D;
+
+
+  
 }

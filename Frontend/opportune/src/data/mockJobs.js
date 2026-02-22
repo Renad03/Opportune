@@ -6,7 +6,7 @@ export const mockJobs = [
     location: "San Francisco, CA",
     skills: ["React", "TypeScript", "CSS", "REST APIs"],
     matchScore: 95,
-    description: "Looking for an experienced frontend developer to join our growing team.",
+   description: "We are looking for an experienced developer to lead our frontend team. You will be working with React, TypeScript, and modern CSS frameworks to build responsive web applications.",
     salary: "$120k - $160k",
     type: "Full-time"
   },
