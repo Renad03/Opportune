@@ -1,18 +1,32 @@
+# Install the PDF reader and the Google GenAI SDK
+# %pip install PyMuPDF pillow google-genai
+# %pip install sentence-transformers
+# %pip install PyMuPDF google-genai
+
+
+# **cv and job parsing**
+
+from fastapi import FastAPI, UploadFile, File
 import os
 import json
 import fitz
 from google import genai
 from google.genai import types
+from google import genai
 
-# Get API key from environment variables
-api_key = os.environ.get("GEMINI_API_KEY")
-if not api_key:
-    raise ValueError("GEMINI_API_KEY not found in environment variables!")
 
-client = genai.Client(api_key=api_key)
-MODEL_NAME = "gemini-2.5-flash"
-print("Gemini Client initialized successfully.")
-    
+app = FastAPI(title="Resume & JD Parser API")
+
+try:
+    # Load the key securely from Colab Secrets
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # from environment variables
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    MODEL_NAME = "gemini-2.5-flash"
+    print("Gemini Client initialized successfully using Colab Secrets.")
+except Exception as e:
+    print(f"Error initializing Gemini Client: {e}")
+    print("Please ensure you have set your 'GEMINI_API_KEY' in Colab Secrets.")
+
 # Schema for parsing a Candidate's CV
 CV_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
@@ -20,9 +34,9 @@ CV_SCHEMA = types.Schema(
         "name": types.Schema(type=types.Type.STRING, description="Full name of the candidate."),
         "email": types.Schema(type=types.Type.STRING, description="Candidate's email address."),
         "phone": types.Schema(type=types.Type.STRING, description="Candidate's phone number."),
-        "total_experience_years": types.Schema(
-            type=types.Type.NUMBER,
-            description="Total years of professional experience (numeric value)."
+        "experience_level": types.Schema(
+            type=types.Type.STRING,
+            description="Experience level (fresher, junior, mid, senior, lead). Use Unspecified if not mentioned"
         ),
         "skills": types.Schema(
             type=types.Type.ARRAY,
@@ -80,13 +94,14 @@ CV_SCHEMA = types.Schema(
     }
 )
 
+
 # Schema for parsing a Job Description (JD)
 JD_SCHEMA = types.Schema(
     type=types.Type.OBJECT,
     properties={
         "job_title": types.Schema(type=types.Type.STRING, description="The official title of the role being advertised."),
         "company": types.Schema(type=types.Type.STRING, description="The name of the hiring company."),
-        "min_experience_years": types.Schema(type=types.Type.NUMBER, description="The minimum required years of experience (numeric value, use 0 if none specified)."),
+        "min_experience_years": types.Schema(type=types.Type.NUMBER, description="The minimum required years of experience (numeric value, use null if none specified)."),
         "required_skills": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING), description="A list of ESSENTIAL technical and soft skills."),
         "preferred_skills": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING), description="A list of optional or 'nice-to-have' skills."),
         "qualifications": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING), description="Required degrees or certifications (e.g., 'BS in Computer Science')."),
@@ -117,7 +132,22 @@ def parse_document_with_llm(document_path, schema, document_type):
         return {"error": f"{document_type} reading failed: {e}"}
 
     # 2. Call the Gemini API for structured extraction
-    prompt = f"Analyze the following {document_type} text and extract the information based *strictly* on the provided JSON schema. Do not include any text outside of the JSON object.\n\n{document_type} Text:\n---\n{text}"
+    prompt = f"""Analyze the following {document_type} text and extract the information based *strictly* on the provided JSON schema. Do not include any text outside of the JSON object.\n\n{document_type} Text:\n---\n{text}
+    
+               CRITICAL RULES:
+                - DO NOT infer experience level.
+                - ONLY use explicitly mentioned years of experience or job durations.
+                - If NO clear experience duration is mentioned → return "Unspecified".
+                - Internships or projects alone DO NOT count as experience.
+                - Do NOT guess based on graduation year.
+                
+                Experience mapping:
+                - fresher (<1 year)
+                - junior (1–3)
+                - mid (3–5)
+                - senior (5–10)
+                - lead (10+)
+                - Unspecified (if not explicitly stated)"""
 
     try:
         response = client.models.generate_content(
