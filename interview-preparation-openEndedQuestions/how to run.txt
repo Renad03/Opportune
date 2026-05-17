@@ -1,0 +1,12 @@
+open terminal in each folder and run these commands :
+
+python -m venv venv
+
+venv\Scripts\activate 
+
+pip install -r requirements.txt           <- make sure the file's name is correct      this step can take few minutes
+
+python main.py                            <- you should see the that the server is running 
+
+
+if there is an error about .env file run this in the terminal :  " pip install python-dotenv "  then run   " python main.py "  again 

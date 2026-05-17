@@ -238,7 +238,7 @@ def pick_k_silhouette(embeddings, k_min=2, k_max=10, random_state=42):
     return best_k
 
 
-def cluster_skills_kmeans(skills, model_sim, k=None, k_min=2, k_max=10, random_state=42):
+def cluster_skills_kmeans(skills, model_sim, k=None, k_min=2, k_max=6, random_state=42):
     skills = clean_list(skills)
     if len(skills) == 0:
         return {"k": 0, "clusters": {}}
@@ -489,7 +489,7 @@ def generate_rag_questions_for_clusters(clustering_result, index, data, embedder
         generated_questions = []
         for i in range(actual_questions):
             difficulty = difficulties[i % len(difficulties)]
-            for attempt in range(5):
+            for attempt in range(2):
                 skills_subset = random.sample(skills, max(2, len(skills) // 2)) if attempt > 0 and len(skills) > 2 else skills
                 result        = get_question_for_cluster(cid, skills_subset, index, data, embedder, difficulty)
                 is_duplicate  = any(questions_are_similar(result["question"], prev_q) for prev_q in generated_questions)
