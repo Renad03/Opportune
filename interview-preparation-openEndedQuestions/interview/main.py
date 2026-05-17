@@ -44,6 +44,7 @@ import faiss
 import fitz
 import uvicorn
 import nest_asyncio
+import unicodedata
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sentence_transformers import SentenceTransformer, util
@@ -56,7 +57,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 # ─────────────────────────────────────────────────────────────
 # 3) ENVIRONMENT SETTINGS
 # ─────────────────────────────────────────────────────────────
@@ -218,7 +219,7 @@ def build_skill_candidates_from_jd(jd_data):
     return clean_list(cleaned)
 
 
-def pick_k_silhouette(embeddings, k_min=2, k_max=10, random_state=42):
+def pick_k_silhouette(embeddings, k_min=2, k_max=6, random_state=42):
     n = embeddings.shape[0]
     if n < 3:
         return 1
@@ -361,7 +362,7 @@ def generate_ideal_answer_groq(question, skills):
         f"- Do not include phrases like 'Great question' or 'As an AI'\n"
         f"- Go straight to the answer\n\nAnswer:"
     )
-    return get_completion(prompt, model="llama-3.3-70b-versatile").strip()
+    return get_completion(prompt, model="llama-3.1-8b-instant").strip()
 
 
 def generate_rag_question(cluster_id, skills, index, data, embedder, difficulty="intermediate"):
@@ -480,34 +481,58 @@ def get_question_for_cluster(cluster_id, skills, index, data, embedder, difficul
     return generate_rag_question(cluster_id, skills, index, data, embedder, difficulty)
 
 
+def generate_question_for_cluster_task(args):
+    cid, skills, index, data, embedder, questions_per_cluster = args
+    difficulties     = ["junior", "intermediate", "senior"]
+    actual_questions = 1 if len(skills) <= 2 else questions_per_cluster
+    results          = []
+    generated_qs     = []
+
+    for i in range(actual_questions):
+        difficulty = difficulties[i % len(difficulties)]
+        for attempt in range(2):
+            skills_subset = random.sample(skills, max(2, len(skills) // 2)) if attempt > 0 and len(skills) > 2 else skills
+            result        = get_question_for_cluster(cid, skills_subset, index, data, embedder, difficulty)
+            is_duplicate  = any(questions_are_similar(result["question"], prev_q) for prev_q in generated_qs)
+            is_relevant   = question_is_relevant(result["question"], skills_subset)
+            if not is_duplicate and is_relevant:
+                generated_qs.append(result["question"])
+                results.append(result)
+                break
+    return results
+
+
 def generate_rag_questions_for_clusters(clustering_result, index, data, embedder, questions_per_cluster=2):
-    all_results  = []
-    difficulties = ["junior", "intermediate", "senior"]
-    for cid, skills in clustering_result["clusters"].items():
-        print(f"\n📦 Cluster {cid} — skills: {skills}")
-        actual_questions    = 1 if len(skills) <= 2 else questions_per_cluster
-        generated_questions = []
-        for i in range(actual_questions):
-            difficulty = difficulties[i % len(difficulties)]
-            for attempt in range(2):
-                skills_subset = random.sample(skills, max(2, len(skills) // 2)) if attempt > 0 and len(skills) > 2 else skills
-                result        = get_question_for_cluster(cid, skills_subset, index, data, embedder, difficulty)
-                is_duplicate  = any(questions_are_similar(result["question"], prev_q) for prev_q in generated_questions)
-                is_relevant   = question_is_relevant(result["question"], skills_subset)
-                if not is_duplicate and is_relevant:
-                    generated_questions.append(result["question"])
-                    all_results.append(result)
-                    source_label = "📚 dataset" if result.get("source") == "dataset_direct" else "🤖 generated"
-                    print(f"  ✅ Q{i+1} ({difficulty}) [{source_label}]: {result['question'][:100]}...")
-                    break
-                elif is_duplicate:
-                    print(f"  ⚠️ Attempt {attempt+1} duplicate, retrying...")
-                else:
-                    print(f"  ⚠️ Attempt {attempt+1} off-topic, retrying...")
-            else:
-                print(f"  ⏭️ Skipped Q{i+1} — couldn't generate relevant unique question")
+    cluster_items = list(clustering_result["clusters"].items())
+    tasks         = [(cid, skills, index, data, embedder, questions_per_cluster) for cid, skills in cluster_items]
+    all_results   = []
+
+    print(f"\n⚡ Generating questions for {len(tasks)} clusters IN PARALLEL...")
+    max_workers = min(len(tasks), 4)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(generate_question_for_cluster_task, task): task[0] for task in tasks}
+        for future in as_completed(futures):
+            cid = futures[future]
+            try:
+                cluster_results = future.result()
+                all_results.extend(cluster_results)
+                print(f"  ✅ Cluster {cid} done — {len(cluster_results)} question(s)")
+            except Exception as e:
+                print(f"  ❌ Cluster {cid} failed: {e}")
+
     return all_results
 
+
+def sanitize_text(text: str) -> str:
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFC", text)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    text = text.replace('\u2018', "'").replace('\u2019', "'")
+    text = text.replace('\u201c', '"').replace('\u201d', '"')
+    text = text.replace('\u2013', '-').replace('\u2014', '-')
+    return text.strip()
 # ─────────────────────────────────────────────────────────────
 # 11) EVALUATION FUNCTIONS
 # ─────────────────────────────────────────────────────────────
@@ -622,7 +647,7 @@ async def generate_questions(request: GenerateQuestionsRequest):
             raise HTTPException(status_code=400, detail="No skills could be extracted from the job description")
 
         # Step 2 — cluster skills
-        clustering_result = cluster_skills_kmeans(skills, _model_sim, k=None, k_min=2, k_max=10)
+        clustering_result = cluster_skills_kmeans(skills, _model_sim, k=None, k_min=2, k_max=6)
 
         # Step 3 — generate questions
         questions = generate_rag_questions_for_clusters(
@@ -636,8 +661,8 @@ async def generate_questions(request: GenerateQuestionsRequest):
                 {
                     "cluster_id": q["cluster_id"],
                     "skills":     q["skills"],
-                    "question":   q["question"],
-                    "answer":     q["answer"],
+                   "question":   sanitize_text(q["question"]),
+                   "answer":     sanitize_text(q["answer"]),
                 }
                 for q in questions
             ]
