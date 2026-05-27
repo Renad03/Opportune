@@ -206,7 +206,7 @@ JOB DESCRIPTION TEXT:
 # =========================
 # 0) CONFIG: put your JD file path
 # =========================
-JD_PATH = r"E:\Opportune\Opportune\interview-preparation-openEndedQuestions\integration\integration\job1.txt" #change this to your JD file path
+JD_PATH = r"E:\Opportune\Opportune\interview-preparation-openEndedQuestions\integration\job1.txt" #change this to your JD file path
 
 # =========================
 # 1) Parse JD TECH SKILLS ONLY
@@ -426,7 +426,7 @@ def load_all_datasets():
     """
     unified = []
 
-    file_path = r"E:\Opportune\Opportune\interview-preparation-openEndedQuestions\integration\integration\test_dataset.csv"   # <-- CHANGE THIS
+    file_path = r"E:\Opportune\Opportune\interview-preparation-openEndedQuestions\integration\test_dataset.csv"   # <-- CHANGE THIS
 
     # ======================================================
     # Load CSV safely
@@ -704,7 +704,6 @@ STRICT RULES:
 """
 
         raw = get_completion(prompt, model="llama-3.1-8b-instant")
-        raw_sanitized = re.sub(r'\\([^"\\/bfnrtu])', r'\1', raw)
 
         try:
             parsed = extract_last_json_object(raw)
@@ -1140,138 +1139,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pyngrok import ngrok
 
-"""
-=============================================================
-PATCH FOR main.py  —  add these BEFORE the FastAPI app routes
-=============================================================
-
-The evaluate-answers endpoint calls compute_hybrid_score() and get_grade()
-but these functions were never defined in main.py.
-Add the two blocks below (marked BLOCK 1 and BLOCK 2) to your main.py,
-right before the @app.post("/generate-questions") route.
-
-No other file needs to change — the Java backend and React frontend
-are already correct.
-=============================================================
-"""
-
-# =============================================================
-# BLOCK 1 — add these imports at the TOP of main.py
-#            (only add the ones not already there)
-# =============================================================
-import re
-
-
-# =============================================================
-# BLOCK 2 — paste this entire section into main.py,
-#            right before @app.post("/generate-questions")
-# =============================================================
-
-def _normalize_user_answer(user_answer: str) -> str:
-    """
-    Normalise a user's MCQ answer to a single lowercase letter: a | b | c | d.
-
-    Accepts any of:
-      'A', 'b', 'C', 'D'            — direct letter
-      'option_a', 'option_b', ...   — full option name
-      'a)', '(b)', 'answer: c'      — wrapped variants
-    Returns '' if the input cannot be recognised.
-    """
-    if not user_answer:
-        return ""
-
-    s = str(user_answer).strip().lower()
-
-    # Direct single letter
-    if s in ("a", "b", "c", "d"):
-        return s
-
-    # Strip known prefixes/wrappers, then look for a letter
-    s_stripped = re.sub(r"[^a-d]", " ", s)
-    tokens = s_stripped.split()
-    for t in tokens:
-        if t in ("a", "b", "c", "d"):
-            return t
-
-    return ""
-
-
-def compute_hybrid_score(user_answer: str, correct_answer: str, question: str) -> dict:
-    """
-    Score an MCQ answer.
-
-    For MCQ the scoring rule is simple and deterministic:
-      - Exact match (after normalisation) → 1.0
-      - No match                          → 0.0
-
-    Returns a dict so the evaluate-answers endpoint can do:
-        scores = compute_hybrid_score(...)
-        results.append({..., **scores})
-
-    The dict always contains 'hybrid_score' so the rest of the
-    endpoint (which reads scores["hybrid_score"]) works unchanged.
-    """
-    normalised_user    = _normalize_user_answer(user_answer)
-    normalised_correct = _normalize_user_answer(correct_answer)
-
-    # Guard: if we cannot parse either side, treat as wrong
-    if not normalised_user or not normalised_correct:
-        exact = 0.0
-    else:
-        exact = 1.0 if normalised_user == normalised_correct else 0.0
-
-    return {
-        "hybrid_score": exact,   # 0.0 or 1.0
-        "exact_match":  exact,   # kept for transparency / future use
-    }
-
-
-def get_grade(score: float) -> str:
-    """
-    Map a 0-1 score to a human-readable grade label.
-
-    Thresholds mirror the notebook's Cell 4 feedback buckets:
-      >= 0.85  →  Excellent
-      >= 0.70  →  Good
-      >= 0.50  →  Partial Credit
-      <  0.50  →  Needs Improvement
-    """
-    if score >= 0.85:
-        return "Excellent"
-    if score >= 0.70:
-        return "Good"
-    if score >= 0.50:
-        return "Partial Credit"
-    return "Needs Improvement"
-
-
-# =============================================================
-# VERIFICATION — quick sanity check (delete before production)
-# =============================================================
-if __name__ == "__main__":
-    # correct answer
-    s = compute_hybrid_score("a", "a", "What is Docker?")
-    assert s["hybrid_score"] == 1.0, s
-
-    # wrong answer
-    s = compute_hybrid_score("b", "a", "What is Docker?")
-    assert s["hybrid_score"] == 0.0, s
-
-    # uppercase input
-    s = compute_hybrid_score("A", "a", "What is Docker?")
-    assert s["hybrid_score"] == 1.0, s
-
-    # option_a style input
-    s = compute_hybrid_score("option_a", "a", "What is Docker?")
-    assert s["hybrid_score"] == 1.0, s
-
-    # grades
-    assert get_grade(1.0)  == "Excellent"
-    assert get_grade(0.75) == "Good"
-    assert get_grade(0.60) == "Partial Credit"
-    assert get_grade(0.30) == "Needs Improvement"
-
-    print("✅ All assertions passed — safe to add to main.py")
 
 # %% [cell 18]
 nest_asyncio.apply()
@@ -1392,7 +1259,7 @@ def get_skill_from_question_obj(q: dict):
 # Generate Questions
 # ==============================
 @app.post("/generate-questions")
-async def generate_questions(request: GenerateQuestionsRequest):
+def generate_questions(request: GenerateQuestionsRequest):
     try:
         # 1) Extract JD skills
         skills = extract_skills_from_text(request.job_description)
@@ -1486,7 +1353,7 @@ async def generate_questions(request: GenerateQuestionsRequest):
 # Evaluate Answers
 # ==============================
 @app.post("/evaluate-answers")
-async def evaluate_answers(request: EvaluateAnswersRequest):
+def evaluate_answers(request: EvaluateAnswersRequest):
     try:
         if request.session_id not in SESSIONS:
             raise HTTPException(status_code=404, detail="Invalid session_id")
@@ -1562,12 +1429,12 @@ async def evaluate_answers(request: EvaluateAnswersRequest):
 # Start server
 # ==============================
 def start_server():
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 # ==============================
 # Start ngrok
 # ==============================
-def start_ngrok(port=8002):
+def start_ngrok(port=8000):
     ngrok.kill()
     time.sleep(2)
 
@@ -1590,7 +1457,7 @@ if __name__ == "__main__":
 
     time.sleep(5)
 
-    public_url = start_ngrok(8002)
+    public_url = start_ngrok(8000)
 
     print("=" * 60)
     print(f"✅ API URL: {public_url}")

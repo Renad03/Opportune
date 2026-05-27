@@ -1,0 +1,54 @@
+Trufla Technology is a multinational Canadian company and the first of its kind – we offer a complete suite of digital solutions for the modern insurance brokerage. From SEO and web design, to lead management, branded customer service and API’s, Trufla provides a 360° digital strategy for brokerages and reimagines the way their customers interact with insurance.
+
+Trufla is leading a digital revolution that will transform the insurance industry! We’re growing fast, and we’re looking for visionaries to join our team of innovators and disruptors at our Cairo offices.
+
+It’s our goal for Trufla to be the BEST place to work. A great corporate culture is one of our top priorities.
+
+Main Benefits
+
+Competitive Salary
+Health Insurance
+Gym Membership
+Flexible Working Hours
+Continuing Education Opportunities
+Work from home
+Team Building Activities
+Milestone celebrations – work anniversaries, birthday celebrations, etc.
+
+Job Responsibilities
+
+Build and automate the provisioning of infrastructure and cloud-native services
+Architect and manage infrastructures for a multitenant distributed environment
+Identify and execute on cloud cost optimization opportunities
+Foster strong working relationships with cross functional partners from design & product
+Take holistic ownership of your work by understanding how things work, even if they take you outside your area of expertise
+Ensure you follow best practices including but not limited to security, availability, and observability of the infrastructure
+Constantly Bring innovative ideas to the table to help make our environment and processes better
+Bring thoughtful perspectives, empathy, creativity, and a positive attitude to take on problems at scale
+Communicate effectively (both written and oral) with colleagues at all levels of the organization
+
+Job Qualifications
+
+4+ years of experience managing infrastructures with lots of moving pieces
+Experience with any public cloud providers (i.e. AWS, Google & Azure), preferably AWS
+Proficiency working with cloud technologies: Dockerization, ECS, CI/CD, auto-scaling, DBs (MySQL, Mongo, Postgres, Elasticsearch, etc…) , IAC
+Proficiency with Linux systems and tools
+Experience in scripting languages (i.e. Shell, Bash, Python, etc…)
+Strong experience in automation
+Preferably experience in architecting scalable infrastructures and data warehouses.
+Data-driven and strongly motivated by success and learnings through experiments and metrics analysis
+Comfortable working in a fast-moving team environment (we deploy many times a day!)
+Computer Science degree, or significant equivalent experience
+Passion for mentoring and supporting the continued education of team members
+Good knowledge of modern deployment tools and technologies (i.e. CI/CD, Docker, AWS, etc…)
+
+Values & Competencies
+
+Positive attitude and enthusiasm for employee training and development
+Flexible and adaptable with proven problem-solving ability
+High degree of professionalism, integrity, and confidentiality
+Demonstrated accountability and reliability in the quality and timeliness of work
+Ability to work well within a team, and independently, and able to adjust to tight and changing deadlines
+Critical thinker with strong attention to details
+
+Trufla Technology is an equal opportunity employer and is committed to all forms of diversity in the workplace. All qualified individuals are encouraged to apply.
