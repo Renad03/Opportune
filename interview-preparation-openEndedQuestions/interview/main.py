@@ -21,7 +21,8 @@ DS1_JSON    = "Cleaned_Computer_Science_Questions.json"
 DS2_CSV     = "dataset_cleaned.csv"
 DS3_JSON    = "train_cleaned.json"
 DS4_CSV     = "software_questions_cleaned.csv"
-DS5_JSON = "cs_dataset_20260527_174101_cleaned.json"
+DS5_JSON = "generated_cache.json"
+
 
 # ─────────────────────────────────────────────────────────────
 # 1) STANDARD LIBRARY IMPORTS
@@ -181,6 +182,7 @@ def extract_skills_from_text(job_description_text: str):
         tmp_path = tmp.name
     try:
         result = parse_jd_tech_skills_with_llm(tmp_path)
+        print(f"DEBUG skills result: {result}")
         return result.get("jd_tech_skills", [])
     finally:
         os.unlink(tmp_path)
@@ -267,7 +269,7 @@ def load_all_datasets():
     ds2_path = os.path.join(DATA_FOLDER, DS2_CSV)
     ds3_path = os.path.join(DATA_FOLDER, DS3_JSON)
     ds4_path = os.path.join(DATA_FOLDER, DS4_CSV)
-    ds5_path = os.path.join(DATA_FOLDER, DS5_JSON)
+    CACHE_JSON = "generated_cache.json"
 
     print("📂 Loading Dataset 1 (Main JSON)...")
     with open(ds1_path, "r") as f:
@@ -309,23 +311,30 @@ def load_all_datasets():
         if q and a:
             unified.append({"question": q, "answer": a, "subject": cat if cat != "nan" else "Software Engineering", "field": "Computer Science", "source": "dataset_software", "difficulty": diff if diff != "nan" else ""})
     print(f"   ✅ {len(df4)} records")
-    print("📂 Loading Dataset 5 (CS Stack/Reddit JSON)...")
-    with open(ds5_path, "r", encoding="utf-8") as f:
-        data5 = json.load(f)
-    for r in data5:
-        q = str(r.get("question", "")).strip()
-        a = str(r.get("answer", "")).strip()
-        if q and a:
-            subject = str(r.get("subject", "Computer Science")).strip()
-            topic   = str(r.get("topic", "")).strip()
-            unified.append({
-                "question": q,
-                "answer":   a,
-                "subject":  topic if topic else subject,
-                "field":    subject,
-                "source":   "dataset_cs5"
-            })
-    print(f"   ✅ {len(data5)} records")
+
+    cache_path = os.path.join(DATA_FOLDER, CACHE_JSON)
+    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 0:
+        print("📂 Loading Generated Cache...")
+        with open(cache_path, "r", encoding="utf-8") as f:
+            cache_data = json.load(f)
+        for r in cache_data:
+            q = str(r.get("question", "")).strip()
+            a = str(r.get("answer", "")).strip()
+            if q and a:
+                unified.append({
+                    "question": q,
+                    "answer":   a,
+                    "subject":  r.get("subject", ""),
+                    "field":    r.get("subject", ""),  # same as subject so exact_match finds it
+                    "source":   "dataset_generated_cache"
+                })
+        print(f"   ✅ {len(cache_data)} cached records")
+    else:
+        print(f"⚠️ Warning: {CACHE_JSON} is empty or missing! Loading empty list instead.")
+    #     data5 = []
+    # print(f"   ✅ {len(data5)} records")
+
+   
 
 
     print(f"\n🔍 Removing cross-dataset duplicates...")
@@ -384,37 +393,96 @@ def generate_ideal_answer_groq(question, skills):
     )
     return get_completion(prompt, model="llama-3.1-8b-instant").strip()
 
+def save_to_cache(result: dict, cache_path="Data/generated_cache.json"):
+    try:
+        new_entry = {
+            "question": result["question"],
+            "answer":   result["answer"],
+            "subject":  ", ".join(result["skills"]),
+            "field":    ", ".join(result["skills"]),
+            "source":   "dataset_generated_cache"
+        }
+        
+        # Save to disk
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            cache = []
+        cache.append(new_entry)
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+        
+        # Also add to live in-memory data so current session can use it
+        builtins.data_global.append(new_entry)
+        
+        # Rebuild FAISS index entry for this new record
+        new_corpus = f"{new_entry['subject']} {new_entry['field']} {new_entry['question']}".strip()
+        new_emb = builtins.embedder_global.encode([new_corpus], convert_to_numpy=True, normalize_embeddings=True)
+        builtins.index_global.add(new_emb)
+        
+        print(f"✅ Cached + added to live index")
+    except Exception as e:
+        print(f"⚠️ Cache save failed: {e}")
+
+
+# def generate_rag_question(cluster_id, skills, index, data, embedder, difficulty="intermediate"):
+#     retrieved  = retrieve_relevant_questions(skills, index, data, embedder, top_k=3)
+#     context    = ""
+#     for i, r in enumerate(retrieved[:3]):   
+#         clean_q = r['question'].split("|")[0].strip()[:100]  
+#         context += f"Example {i+1}: {clean_q}\n"  
+
+#     skills_str       = ", ".join(skills)
+#     question_prompt  = (
+#         f"Generate a {difficulty} level technical interview question "
+#         f"about {skills_str}. "
+#         f"The question must be directly about {skills_str}. "
+#         f"Use these examples as style reference only: {context}"
+#         f"Generate one new question without any prefix like Q: or A::"
+#     )
+
+#     inputs = gen_tokenizer(question_prompt, return_tensors="pt", max_length=512, truncation=True).to(device)
+#     q_outputs = gen_model.generate(
+#         input_ids=inputs["input_ids"], attention_mask=inputs["attention_mask"],
+#         max_length=80, min_length=10, num_beams=1,
+#         no_repeat_ngram_size=3, repetition_penalty=2.5,
+#         length_penalty=1.0, early_stopping=True,
+#     )
+#     question = gen_tokenizer.decode(q_outputs[0], skip_special_tokens=True).strip()
+#     question = question.replace("A:", "").replace("Q:", "").split("|")[0].strip()
+
+#     print(f"     💭 Generating ideal answer with LLaMA...")
+#     ideal_answer = generate_ideal_answer_groq(question, skills)
+    
+#     result = {"cluster_id": cluster_id, "skills": skills, "question": question, "answer": ideal_answer, "source": "generated"}
+#     save_to_cache(result)  # ← save before returning
+#     return result
+
 
 def generate_rag_question(cluster_id, skills, index, data, embedder, difficulty="intermediate"):
-    retrieved  = retrieve_relevant_questions(skills, index, data, embedder, top_k=3)
-    context    = ""
-    for i, r in enumerate(retrieved[:3]):   
-        clean_q = r['question'].split("|")[0].strip()[:100]  
-        context += f"Example {i+1}: {clean_q}\n"  
-
-    skills_str       = ", ".join(skills)
-    question_prompt  = (
-        f"Generate a {difficulty} level technical interview question "
-        f"about {skills_str}. "
-        f"The question must be directly about {skills_str}. "
-        f"Use these examples as style reference only: {context}"
-        f"Generate one new question without any prefix like Q: or A::"
+    skills_str = ", ".join(skills)
+    
+    prompt = (
+        f"You are a technical interviewer. Generate exactly ONE {difficulty}-level "
+        f"technical interview question specifically about: {skills_str}.\n\n"
+        f"Rules:\n"
+        f"- The question MUST be directly about {skills_str}\n"
+        f"- No generic questions like 'what is a bug' or 'how to get a job'\n"
+        f"- No prefix like Q: or A: or numbering\n"
+        f"- Return only the question text, nothing else\n\n"
+        f"Question:"
     )
-
-    inputs = gen_tokenizer(question_prompt, return_tensors="pt", max_length=512, truncation=True).to(device)
-    q_outputs = gen_model.generate(
-        input_ids=inputs["input_ids"], attention_mask=inputs["attention_mask"],
-        max_length=80, min_length=10, num_beams=1,
-        no_repeat_ngram_size=3, repetition_penalty=2.5,
-        length_penalty=1.0, early_stopping=True,
-    )
-    question = gen_tokenizer.decode(q_outputs[0], skip_special_tokens=True).strip()
-    question = question.replace("A:", "").replace("Q:", "").split("|")[0].strip()
-
+    
+    question = get_completion(prompt, model="llama-3.1-8b-instant").strip()
+    question = question.replace("Q:", "").replace("A:", "").split("\n")[0].strip()
+    
     print(f"     💭 Generating ideal answer with LLaMA...")
     ideal_answer = generate_ideal_answer_groq(question, skills)
-    return {"cluster_id": cluster_id, "skills": skills, "question": question, "answer": ideal_answer, "source":"generated"}
-
+    
+    result = {"cluster_id": cluster_id, "skills": skills, "question": question, "answer": ideal_answer, "source": "generated"}
+    save_to_cache(result)
+    return result
 
 def question_is_relevant(question, skills):
     question_lower = question.lower()
@@ -422,12 +490,12 @@ def question_is_relevant(question, skills):
     return any(word in question_lower for word in skills_words)
 
 
-def questions_are_similar(q1, q2, threshold=0.7):
-    words1  = set(q1.lower().split())
-    words2  = set(q2.lower().split())
-    overlap = len(words1 & words2) / max(len(words1), len(words2))
-    return overlap > threshold
-
+def questions_are_similar(q1, q2, threshold=0.85):
+    """Use semantic similarity instead of word overlap — much more accurate."""
+    emb1 = embedder.encode(q1, convert_to_tensor=True, normalize_embeddings=True)
+    emb2 = embedder.encode(q2, convert_to_tensor=True, normalize_embeddings=True)
+    score = float(util.cos_sim(emb1, emb2)[0][0])
+    return score > threshold
 
 def normalize_text_basic(x: str) -> str:
     x = str(x).strip().lower()
@@ -444,7 +512,7 @@ def exact_match_score(record, skill):
     if skill_text == record_subject:        score += 5.0
     elif skill_text and skill_text in record_subject:  score += 3.0
     if skill_text == record_field:          score += 3.5
-    elif skill_text and skill_text in record_field:    score += 2.0
+    elif skill_text and skill_text in record_field:    score += 5.0
     if skill_text and skill_text in record_question:   score += 0.8
     return score
 
@@ -505,41 +573,59 @@ def retrieve_exact_matches_for_cluster(skills, data, top_k=5):
 
 #     print(f"  🔄 Generating new question (best match: {match_score:.2f})")
 #     return generate_rag_question(cluster_id, skills, index, data, embedder, difficulty)
+
+
+# 
+
+
 def get_question_for_cluster(cluster_id, skills, index, data, embedder,
-                              difficulty="intermediate", exact_matches_cache=None):
-    # Use the pre-computed cache if provided, otherwise compute it
+                              difficulty="intermediate", exact_matches_cache=None,
+                              used_questions=None):  # ← add this parameter
+    if used_questions is None:
+        used_questions = set()
+
     if exact_matches_cache is None:
         exact_matches = retrieve_exact_matches_for_cluster(skills, data, top_k=5)
     else:
         exact_matches = exact_matches_cache
 
     if exact_matches:
-        best_score, best_record = exact_matches[0]
-        if best_score >= 5.0:
-            question = best_record.get("question", "").replace("A:", "").replace("Q:", "").split("|")[0].strip()
-            answer   = best_record.get("answer", "").strip()
-            if question and answer:
-                print(f"  📖 Exact match found (score: {best_score:.1f}): {question[:60]}...")
-                return {"cluster_id": cluster_id, "skills": skills, "question": question,
-                        "answer": answer, "source": "dataset_exact", "match_score": best_score}
+        for score, record in exact_matches:  # ← iterate all matches, not just best
+            question = record.get("question", "").replace("A:", "").replace("Q:", "").split("|")[0].strip()
+            answer   = record.get("answer", "").strip()
+            key      = question.strip().lower()[:100]
             
+            if key in used_questions:  # ← skip already used
+                continue
+                
+            if score >= 3.0 and question and answer:
+                print(f"  📖 Exact match found (score: {score:.1f}): {question[:60]}...")
+                return {"cluster_id": cluster_id, "skills": skills, "question": question,
+                        "answer": answer, "source": "dataset_exact", "match_score": score}
+
     skills_str  = ", ".join(skills)
     query       = f"interview question about {skills_str}"
     query_emb   = embedder.encode([query], normalize_embeddings=True)
-    scores, indices = index.search(query_emb, 1)
-    match_score = float(scores[0][0])
-    best_match  = data[indices[0][0]]
-
-    if match_score >= 0.75:
+    
+    # Search more candidates to find one not already used
+    scores, indices = index.search(query_emb, 10)  # ← search top 10 instead of 1
+    for i in range(len(indices[0])):
+        match_score = float(scores[0][i])
+        best_match  = data[indices[0][i]]
         question = best_match.get("question", "").replace("A:", "").replace("Q:", "").split("|")[0].strip()
         answer   = best_match.get("answer", "").strip()
-        if question and answer:
+        key      = question.strip().lower()[:100]
+        
+        if key in used_questions:  # ← skip already used
+            continue
+            
+        if match_score >= 0.6 and question and answer:
             print(f"  📚 Using dataset question directly (match: {match_score:.2f})")
-            return {"cluster_id": cluster_id, "skills": skills, "question": question, "answer": answer, "source": "dataset_direct", "match_score": match_score}
+            return {"cluster_id": cluster_id, "skills": skills, "question": question,
+                    "answer": answer, "source": "dataset_direct", "match_score": match_score}
 
-    print(f"  🔄 Generating new question (best match: {match_score:.2f})")
+    print(f"  🔄 Generating new question...")
     return generate_rag_question(cluster_id, skills, index, data, embedder, difficulty)
-
 
 # def generate_question_for_cluster_task(args):
 #     cid, skills, index, data, embedder, questions_per_cluster = args
@@ -567,33 +653,33 @@ def generate_question_for_cluster_task(args):
     results = []
     generated_qs = []
 
-    # Run exact match ONCE for the whole cluster
     exact_matches_cache = retrieve_exact_matches_for_cluster(skills, data, top_k=10)
 
     for i in range(actual_questions):
         difficulty = difficulties[i % len(difficulties)]
+        
+        for attempt in range(3):  # retry up to 3 times if duplicate
+            result = get_question_for_cluster(
+                cid, skills, index, data, embedder, difficulty,
+                exact_matches_cache=exact_matches_cache
+            )
 
-        result = get_question_for_cluster(
-            cid, skills, index, data, embedder, difficulty,
-            exact_matches_cache=exact_matches_cache
-        )
+            is_duplicate = any(questions_are_similar(result["question"], prev_q)
+                               for prev_q in generated_qs)
+            is_relevant  = question_is_relevant(result["question"], skills)
+            source       = result.get("source", "")
+            is_from_dataset = source in ("dataset_exact", "dataset_direct")
+            is_generated    = source == "generated"
 
-        source = result.get("source", "")
-        is_from_dataset = source in ("dataset_exact", "dataset_direct")
-        is_generated    = source == "generated"
-        is_duplicate    = any(questions_are_similar(result["question"], prev_q)
-                            for prev_q in generated_qs)
-        is_relevant     = question_is_relevant(result["question"], skills)
+            if not is_duplicate and (is_relevant or is_from_dataset or is_generated):
+                generated_qs.append(result["question"])
+                results.append(result)
+                break
 
-        # Accept if: not duplicate AND (relevant OR came from dataset OR was T5-generated)
-        if not is_duplicate and (is_relevant or is_from_dataset or is_generated):
-            generated_qs.append(result["question"])
-            results.append(result)
-            break
+            if is_from_dataset:
+                break  # dataset will always return same record, no point retrying
 
-        # If dataset returned a duplicate, no point retrying — same record will come back
-        if is_from_dataset:
-            break
+            print(f"  ⚠️ Attempt {attempt+1} duplicate detected, retrying...")
 
     return results
 
@@ -618,27 +704,71 @@ def generate_question_for_cluster_task(args):
 
 #     return all_results
 
-def generate_rag_questions_for_clusters(clustering_result, index, data, embedder, questions_per_cluster=2):
+def generate_rag_questions_for_clusters(clustering_result, index, data, embedder, questions_per_cluster=1):
     cluster_items = list(clustering_result["clusters"].items())
-    tasks = [(cid, skills, index, data, embedder, questions_per_cluster)
-             for cid, skills in cluster_items]
     all_results = []
+    used_questions = set()  # track across all clusters
 
-    print(f"\n⚡ Generating questions for {len(tasks)} clusters...")
+    print(f"\n⚡ Generating questions for {len(cluster_items)} clusters...")
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        futures = {executor.submit(generate_question_for_cluster_task, task): task[0]
-                   for task in tasks}
-        for future in as_completed(futures):
-            cid = futures[future]
-            try:
-                cluster_results = future.result()
-                all_results.extend(cluster_results)
-                print(f"  ✅ Cluster {cid} done — {len(cluster_results)} question(s)")
-            except Exception as e:
-                print(f"  ❌ Cluster {cid} failed: {e}")
+    for cid, skills in cluster_items:
+        try:
+            results = generate_question_for_cluster_task_v2(
+                cid, skills, index, data, embedder, questions_per_cluster, used_questions
+            )
+            for r in results:
+                used_questions.add(r["question"].strip().lower()[:100])
+            all_results.extend(results)
+            print(f"  ✅ Cluster {cid} done — {len(results)} question(s)")
+        except Exception as e:
+            print(f"  ❌ Cluster {cid} failed: {e}")
 
     return all_results
+
+def generate_question_for_cluster_task_v2(cid, skills, index, data, embedder, questions_per_cluster, used_questions):
+    difficulties = ["junior", "intermediate", "senior"]
+    actual_questions = 1 if len(skills) <= 2 else questions_per_cluster
+    results = []
+    generated_qs = list(used_questions)
+    local_used = set(used_questions)  # ← track used within this cluster too
+
+    exact_matches_cache = retrieve_exact_matches_for_cluster(skills, data, top_k=10)
+
+    for i in range(actual_questions):
+        difficulty = difficulties[i % len(difficulties)]
+
+        for attempt in range(3):
+            result = get_question_for_cluster(
+                cid, skills, index, data, embedder, difficulty,
+                exact_matches_cache=exact_matches_cache,
+                used_questions=local_used  # ← pass it here
+            )
+
+            is_duplicate = any(questions_are_similar(result["question"], prev_q)
+                               for prev_q in generated_qs)
+            is_relevant  = question_is_relevant(result["question"], skills)
+            source       = result.get("source", "")
+            is_from_dataset = source in ("dataset_exact", "dataset_direct")
+            is_generated    = source == "generated"
+
+            if not is_duplicate and (is_relevant or is_from_dataset or is_generated):
+                generated_qs.append(result["question"])
+                local_used.add(result["question"].strip().lower()[:100])  # ← mark as used
+                results.append(result)
+                break
+
+            print(f"  ⚠️ Cluster {cid} attempt {attempt+1}: duplicate detected, regenerating...")
+            result = generate_rag_question(cid, skills, index, data, embedder, difficulty)
+            is_duplicate = any(questions_are_similar(result["question"], prev_q)
+                               for prev_q in generated_qs)
+            if not is_duplicate:
+                generated_qs.append(result["question"])
+                local_used.add(result["question"].strip().lower()[:100])
+                results.append(result)
+                break
+
+    return results
+
 
 def sanitize_text(text: str) -> str:
     if not text:
@@ -769,6 +899,15 @@ async def generate_questions(request: GenerateQuestionsRequest):
         questions = generate_rag_questions_for_clusters(
             clustering_result, _index, _data, embedder, questions_per_cluster=2
         )
+                # After generating questions, deduplicate across clusters
+        seen_questions = set()
+        unique_questions = []
+        for q in questions:
+            key = q["question"].strip().lower()[:100]  # use first 100 chars as key
+            if key not in seen_questions:
+                seen_questions.add(key)
+                unique_questions.append(q)
+        questions = unique_questions
 
         return {
             "status":    "questions_ready",
