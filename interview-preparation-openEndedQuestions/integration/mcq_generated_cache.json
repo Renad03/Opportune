@@ -1562,5 +1562,74 @@
     "topic": "Tokens Studio",
     "source_url": "",
     "source": "generated_fallback"
+  },
+  {
+    "cluster_id": -1,
+    "skills": [
+      "Hacklang"
+    ],
+    "skill": "Hacklang",
+    "subskill": "Hacklang",
+    "question_type": "mcq",
+    "question": "Which of the following best describes Hacklang?",
+    "option_a": "Hacklang is a templating engine for PHP.",
+    "option_b": "Hacklang is a programming language developed by Facebook.",
+    "option_c": "Hacklang is a static type checker for PHP.",
+    "option_d": "Hacklang is a PHP framework.",
+    "correct_answer": "c",
+    "explanation": "Hacklang is a static type checker for PHP, developed by Facebook.",
+    "has_image": "no",
+    "image_url": "",
+    "image_alt_text": "",
+    "question_number": "",
+    "topic": "Hacklang",
+    "source_url": "",
+    "source": "generated_fallback"
+  },
+  {
+    "cluster_id": -1,
+    "skills": [
+      "GPU"
+    ],
+    "skill": "GPU",
+    "subskill": "GPU",
+    "question_type": "mcq",
+    "question": "Which of the following best describes GPU?",
+    "option_a": "A Graphics Processing Unit (GPU) is a specialized electronic circuit designed to quickly manipulate and alter memory to accelerate the creation of images in a frame buffer intended for output to a display device.",
+    "option_b": "A GPU is a type of CPU that is used for general-purpose computing.",
+    "option_c": "A GPU is a computer chip that is designed to handle graphics and compute tasks.",
+    "option_d": "A GPU is a type of memory that is used to store graphics data.",
+    "correct_answer": "c",
+    "explanation": "GPUs are designed to handle graphics and compute tasks, making them ideal for applications such as gaming, scientific simulations, and machine learning.",
+    "has_image": "no",
+    "image_url": "",
+    "image_alt_text": "",
+    "question_number": "",
+    "topic": "GPU",
+    "source_url": "",
+    "source": "generated_fallback"
+  },
+  {
+    "cluster_id": -1,
+    "skills": [
+      "KubeRay"
+    ],
+    "skill": "KubeRay",
+    "subskill": "KubeRay",
+    "question_type": "mcq",
+    "question": "Which of the following best describes KubeRay?",
+    "option_a": "KubeRay is a Kubernetes-based distributed machine learning platform.",
+    "option_b": "KubeRay is a Python-based deep learning framework.",
+    "option_c": "KubeRay is a cloud-based data analytics platform.",
+    "option_d": "KubeRay is a Kubernetes-based distributed machine learning platform that integrates with popular ML frameworks.",
+    "correct_answer": "d",
+    "explanation": "KubeRay integrates with popular ML frameworks and is built on top of Kubernetes.",
+    "has_image": "no",
+    "image_url": "",
+    "image_alt_text": "",
+    "question_number": "",
+    "topic": "KubeRay",
+    "source_url": "",
+    "source": "generated_fallback"
   }
 ]

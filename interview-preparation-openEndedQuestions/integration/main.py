@@ -28,6 +28,7 @@ import re
 from dotenv import load_dotenv
 load_dotenv()
 
+
 # ==============================
 # Initialize Groq client
 # ==============================
@@ -1016,24 +1017,20 @@ def generate_mcq_fallback(skill):
 
 def save_to_cache(record: dict):
     try:
-        # Save to disk
         try:
             with open(CACHE_JSON_PATH, "r", encoding="utf-8") as f:
                 cache = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             cache = []
 
-        # Deduplicate before saving
         existing_questions = {e.get("question", "").strip().lower() for e in cache}
         if record.get("question", "").strip().lower() not in existing_questions:
             cache.append(record)
             with open(CACHE_JSON_PATH, "w", encoding="utf-8") as f:
                 json.dump(cache, f, ensure_ascii=False, indent=2)
 
-            # Add to live metadata so current session can find it
             metadata.append(record)
 
-            # Add to live FAISS index
             new_text = f"{record.get('skill','')} {record.get('subskill','')} {record.get('topic','')} {record.get('question','')}".strip()
             new_emb = embedder.encode([new_text], convert_to_numpy=True, normalize_embeddings=True)
             index.add(new_emb)
@@ -1179,6 +1176,32 @@ for r in all_questions:
     print(f"   Explanation: {r['explanation']}")
     print("-" * 60)
 
+
+def compute_hybrid_score(user_answer: str, correct_answer: str, question: str) -> dict:
+    """
+    Score an MCQ answer. For MCQs this is simple exact-match scoring
+    since correct_answer is a letter (a/b/c/d).
+    """
+    user_clean = str(user_answer).strip().lower()
+    correct_clean = str(correct_answer).strip().lower()
+
+    is_correct = user_clean == correct_clean
+
+    return {
+        "hybrid_score": 1.0 if is_correct else 0.0,
+        "is_correct": is_correct
+    }
+
+
+def get_grade(score: float) -> str:
+    if score >= 0.9:
+        return "Excellent ✅"
+    elif score >= 0.7:
+        return "Good 👍"
+    elif score >= 0.4:
+        return "Partial ⚠️"
+    else:
+        return "Needs Improvement ❌"
 
 # %% [cell 17]
 # ==============================
@@ -1497,20 +1520,21 @@ def start_server():
     import asyncio
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    config = uvicorn.Config(app, host="0.0.0.0", port=8000, loop="asyncio")
+    config = uvicorn.Config(app, host="0.0.0.0", port=8002, loop="asyncio")
     server = uvicorn.Server(config)
     loop.run_until_complete(server.serve())
 # ==============================
 # Start ngrok
 # ==============================
-def start_ngrok(port=8000):
+def start_ngrok(port=8002):
     ngrok.kill()
     time.sleep(2)
 
-    if not NGROK_TOKEN or NGROK_TOKEN == "PUT_YOUR_REAL_NGROK_TOKEN_HERE":
-        raise Exception("Please set your real ngrok token first")
+    token = os.getenv("NGROK_TOKEN", "").strip()
+    if not token:
+        raise Exception("NGROK_TOKEN is not set in .env file")
 
-    ngrok.set_auth_token(NGROK_TOKEN)
+    ngrok.set_auth_token(token)
     tunnel = ngrok.connect(port)
     return tunnel.public_url
 
