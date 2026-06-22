@@ -317,6 +317,8 @@ def load_all_datasets():
         print("📂 Loading Generated Cache...")
         with open(cache_path, "r", encoding="utf-8") as f:
             cache_data = json.load(f)
+        print(f"   DEBUG: cache file has {len(cache_data)} entries")
+        before_cache = len(unified)
         for r in cache_data:
             q = str(r.get("question", "")).strip()
             a = str(r.get("answer", "")).strip()
@@ -325,16 +327,15 @@ def load_all_datasets():
                     "question": q,
                     "answer":   a,
                     "subject":  r.get("subject", ""),
-                    "field":    r.get("subject", ""),  # same as subject so exact_match finds it
+                    "field":    r.get("subject", ""),
                     "source":   "dataset_generated_cache"
                 })
+        print(f"   DEBUG: added {len(unified) - before_cache} from cache to unified")
         print(f"   ✅ {len(cache_data)} cached records")
     else:
-        print(f"⚠️ Warning: {CACHE_JSON} is empty or missing! Loading empty list instead.")
-    #     data5 = []
-    # print(f"   ✅ {len(data5)} records")
+        print(f"⚠️ Cache file missing or empty: {cache_path}")
 
-   
+
 
 
     print(f"\n🔍 Removing cross-dataset duplicates...")
@@ -346,6 +347,9 @@ def load_all_datasets():
             seen.add(key)
             deduped.append(r)
     print(f"   Removed {before - len(deduped)} cross-dataset duplicates")
+
+    cache_in_final = sum(1 for r in deduped if r.get("source") == "dataset_generated_cache")
+    print(f"   DEBUG: cache records surviving dedup: {cache_in_final}")
     print(f"\n{'='*40}")
     print(f"📦 TOTAL RECORDS: {len(deduped)}")
     for src, count in Counter(r["source"] for r in deduped).items():
@@ -420,7 +424,9 @@ def save_to_cache(result: dict, cache_path="Data/generated_cache.json"):
         new_corpus = f"{new_entry['subject']} {new_entry['field']} {new_entry['question']}".strip()
         new_emb = builtins.embedder_global.encode([new_corpus], convert_to_numpy=True, normalize_embeddings=True)
         builtins.index_global.add(new_emb)
-        
+
+        print(f"   DEBUG save path: {cache_path}")           # ← add this
+        print(f"   DEBUG cache now has: {len(cache)} entries") # ← add this
         print(f"✅ Cached + added to live index")
     except Exception as e:
         print(f"⚠️ Cache save failed: {e}")
@@ -730,18 +736,20 @@ def generate_question_for_cluster_task_v2(cid, skills, index, data, embedder, qu
     actual_questions = 1 if len(skills) <= 2 else questions_per_cluster
     results = []
     generated_qs = list(used_questions)
-    local_used = set(used_questions)  # ← track used within this cluster too
+    local_used = set(used_questions)
 
     exact_matches_cache = retrieve_exact_matches_for_cluster(skills, data, top_k=10)
 
     for i in range(actual_questions):
         difficulty = difficulties[i % len(difficulties)]
+        got_question = False
 
         for attempt in range(3):
+            # Always pass local_used so get_question_for_cluster skips already used questions
             result = get_question_for_cluster(
                 cid, skills, index, data, embedder, difficulty,
                 exact_matches_cache=exact_matches_cache,
-                used_questions=local_used  # ← pass it here
+                used_questions=local_used  # ← this is the key fix
             )
 
             is_duplicate = any(questions_are_similar(result["question"], prev_q)
@@ -753,11 +761,17 @@ def generate_question_for_cluster_task_v2(cid, skills, index, data, embedder, qu
 
             if not is_duplicate and (is_relevant or is_from_dataset or is_generated):
                 generated_qs.append(result["question"])
-                local_used.add(result["question"].strip().lower()[:100])  # ← mark as used
+                local_used.add(result["question"].strip().lower()[:100])
                 results.append(result)
+                got_question = True
                 break
 
-            print(f"  ⚠️ Cluster {cid} attempt {attempt+1}: duplicate detected, regenerating...")
+            print(f"  ⚠️ Cluster {cid} attempt {attempt+1}: duplicate detected, forcing generation...")
+            
+            # Mark the duplicate as used so next attempt skips it
+            local_used.add(result["question"].strip().lower()[:100])
+            
+            # Force LLaMA generation directly, skip dataset lookup
             result = generate_rag_question(cid, skills, index, data, embedder, difficulty)
             is_duplicate = any(questions_are_similar(result["question"], prev_q)
                                for prev_q in generated_qs)
@@ -765,10 +779,13 @@ def generate_question_for_cluster_task_v2(cid, skills, index, data, embedder, qu
                 generated_qs.append(result["question"])
                 local_used.add(result["question"].strip().lower()[:100])
                 results.append(result)
+                got_question = True
                 break
 
-    return results
+        if not got_question:
+            print(f"  ⚠️ Cluster {cid}: could not find unique question after 3 attempts")
 
+    return results
 
 def sanitize_text(text: str) -> str:
     if not text:

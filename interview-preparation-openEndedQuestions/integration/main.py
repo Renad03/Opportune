@@ -417,7 +417,7 @@ from collections import defaultdict, Counter
 from sentence_transformers import SentenceTransformer
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
-
+CACHE_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcq_generated_cache.json")
 # %% [cell 8]
 def load_all_datasets():
     """
@@ -520,6 +520,34 @@ def load_all_datasets():
 
     after = len(deduped)
     print(f"   Removed {before - after} duplicate questions")
+
+# Load generated cache
+    # Replace is_valid_mcq(r) with the inline check:
+    if os.path.exists(CACHE_JSON_PATH) and os.path.getsize(CACHE_JSON_PATH) > 0:
+        print("📂 Loading Generated Cache...")
+        try:
+            with open(CACHE_JSON_PATH, "r", encoding="utf-8") as f:
+                cache_data = json.load(f)
+            before_cache = len(deduped)
+            for r in cache_data:
+                # inline validation instead of is_valid_mcq(r)
+                if not str(r.get("question", "")).strip():
+                    continue
+                if str(r.get("correct_answer", "")).strip().lower() not in {"a", "b", "c", "d"}:
+                    continue
+                if not all([str(r.get("option_a", "")).strip(),
+                            str(r.get("option_b", "")).strip(),
+                            str(r.get("option_c", "")).strip(),
+                            str(r.get("option_d", "")).strip()]):
+                    continue
+                key = re.sub(r"[^\w\s]", "", r["question"].lower().strip())
+                key = " ".join(key.split())
+                if key not in seen:
+                    seen.add(key)
+                    deduped.append(r)
+            print(f"   ✅ {len(deduped) - before_cache} new cached records added")
+        except Exception as e:
+            print(f"⚠️ Cache load failed: {e}")
 
     # ======================================================
     # Final summary
@@ -961,7 +989,7 @@ def generate_mcq_fallback(skill):
     question = f"Which of the following best describes {skill}?"
     mcq = generate_mcq_details_groq(question, [skill])
 
-    return {
+    result = {
         "cluster_id": -1,
         "skills": [skill],
         "skill": skill,
@@ -982,6 +1010,41 @@ def generate_mcq_fallback(skill):
         "source_url": "",
         "source": "generated_fallback"
     }
+    
+    save_to_cache(result)  
+    return result
+
+def save_to_cache(record: dict):
+    try:
+        # Save to disk
+        try:
+            with open(CACHE_JSON_PATH, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            cache = []
+
+        # Deduplicate before saving
+        existing_questions = {e.get("question", "").strip().lower() for e in cache}
+        if record.get("question", "").strip().lower() not in existing_questions:
+            cache.append(record)
+            with open(CACHE_JSON_PATH, "w", encoding="utf-8") as f:
+                json.dump(cache, f, ensure_ascii=False, indent=2)
+
+            # Add to live metadata so current session can find it
+            metadata.append(record)
+
+            # Add to live FAISS index
+            new_text = f"{record.get('skill','')} {record.get('subskill','')} {record.get('topic','')} {record.get('question','')}".strip()
+            new_emb = embedder.encode([new_text], convert_to_numpy=True, normalize_embeddings=True)
+            index.add(new_emb)
+
+            print(f"✅ Cached + added to live index: {record.get('skill','')}")
+        else:
+            print(f"⚠️ Duplicate skipped in cache: {record.get('question','')[:60]}")
+
+    except Exception as e:
+        print(f"⚠️ Cache save failed: {e}")
+
 
 
 def generate_questions_per_skill(skills, index, metadata, embedder):
@@ -1125,12 +1188,15 @@ for r in all_questions:
 # ==============================
 # Imports
 # ==============================
+
 import uuid
 import tempfile
 import os
 import threading
 import time
 import nest_asyncio
+nest_asyncio.apply()
+
 import uvicorn
 
 from typing import List, Dict, Optional
@@ -1141,7 +1207,6 @@ from pyngrok import ngrok
 
 
 # %% [cell 18]
-nest_asyncio.apply()
 
 # ==============================
 # SET YOUR NGROK TOKEN
@@ -1184,7 +1249,7 @@ class EvaluateAnswersRequest(BaseModel):
 # Helper: root
 # ==============================
 @app.get("/")
-def root():
+async def root():
     return {
         "message": "Interview Preparation API is running",
         "docs": "/docs",
@@ -1195,7 +1260,7 @@ def root():
 # Health
 # ==============================
 @app.get("/health")
-def health():
+async def health():
     return {"status": "running"}
 
 # ==============================
@@ -1259,7 +1324,7 @@ def get_skill_from_question_obj(q: dict):
 # Generate Questions
 # ==============================
 @app.post("/generate-questions")
-def generate_questions(request: GenerateQuestionsRequest):
+async def generate_questions(request: GenerateQuestionsRequest):
     try:
         # 1) Extract JD skills
         skills = extract_skills_from_text(request.job_description)
@@ -1353,7 +1418,7 @@ def generate_questions(request: GenerateQuestionsRequest):
 # Evaluate Answers
 # ==============================
 @app.post("/evaluate-answers")
-def evaluate_answers(request: EvaluateAnswersRequest):
+async def evaluate_answers(request: EvaluateAnswersRequest):
     try:
         if request.session_id not in SESSIONS:
             raise HTTPException(status_code=404, detail="Invalid session_id")
@@ -1429,8 +1494,12 @@ def evaluate_answers(request: EvaluateAnswersRequest):
 # Start server
 # ==============================
 def start_server():
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, loop="asyncio")
+    server = uvicorn.Server(config)
+    loop.run_until_complete(server.serve())
 # ==============================
 # Start ngrok
 # ==============================
