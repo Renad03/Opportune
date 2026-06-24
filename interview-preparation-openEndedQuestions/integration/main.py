@@ -25,6 +25,7 @@ import json
 from groq import Groq
 import json
 import re
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -207,7 +208,7 @@ JOB DESCRIPTION TEXT:
 # =========================
 # 0) CONFIG: put your JD file path
 # =========================
-JD_PATH = r"E:\Opportune\Opportune\interview-preparation-openEndedQuestions\integration\job1.txt" #change this to your JD file path
+JD_PATH =str(Path(__file__).parent / "job1.txt")
 
 # =========================
 # 1) Parse JD TECH SKILLS ONLY
@@ -427,7 +428,7 @@ def load_all_datasets():
     """
     unified = []
 
-    file_path = r"E:\Opportune\Opportune\interview-preparation-openEndedQuestions\integration\test_dataset.csv"   # <-- CHANGE THIS
+    file_path = str(Path(__file__).parent / "test_dataset.csv")   # <-- CHANGE THIS
 
     # ======================================================
     # Load CSV safely
