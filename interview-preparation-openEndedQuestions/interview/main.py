@@ -704,12 +704,14 @@ def compute_cosine_similarity(sentence_a, sentence_b):
     embedding_a = embedder.encode(sentence_a, convert_to_tensor=True, normalize_embeddings=True)
     embedding_b = embedder.encode(sentence_b, convert_to_tensor=True, normalize_embeddings=True)
     score = util.cos_sim(embedding_a, embedding_b)
-    return round(float(score[0][0]), 3)
+    return round(max(0.0, float(score[0][0])), 3)
 
 
 def compute_hybrid_score(user_answer, correct_answer, question):
     correctness = compute_cosine_similarity(user_answer, correct_answer)
     relevance   = compute_cosine_similarity(user_answer, question)
+    correctness = max(0.0, correctness)
+    relevance   = max(0.0, relevance)
     final_score = (correctness + relevance) / 2
     return {"hybrid_score": round(final_score, 3), "correctness": round(correctness, 3), "relevance": round(relevance, 3)}
 
