@@ -1,0 +1,15 @@
+groq
+sentence-transformers
+PyMuPDF
+scikit-learn
+numpy
+faiss-cpu
+pandas
+torch
+transformers
+fastapi
+uvicorn
+pyngrok
+nest-asyncio
+pydantic
+sentencepiece

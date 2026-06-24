@@ -13,19 +13,27 @@ import fitz
 from google import genai
 from google.genai import types
 from google import genai
+from dotenv import load_dotenv
+
+
 
 
 app = FastAPI(title="Resume & JD Parser API")
 
 try:
-    # Load the key securely from Colab Secrets
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # from environment variables
+    load_dotenv()
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY is missing")
+
     client = genai.Client(api_key=GEMINI_API_KEY)
     MODEL_NAME = "gemini-2.5-flash"
-    print("Gemini Client initialized successfully using Colab Secrets.")
+
+    print("Gemini Client initialized successfully")
+
 except Exception as e:
-    print(f"Error initializing Gemini Client: {e}")
-    print("Please ensure you have set your 'GEMINI_API_KEY' in Colab Secrets.")
+    print("INITIALIZATION ERROR:", repr(e))
 
 # Schema for parsing a Candidate's CV
 CV_SCHEMA = types.Schema(

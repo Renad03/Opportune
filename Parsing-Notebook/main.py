@@ -3,6 +3,7 @@ from fastapi import FastAPI
 import os
 from fastapi import UploadFile, File
 from OpportuneParsing import parse_document_with_llm, CV_SCHEMA, JD_SCHEMA
+import uvicorn
 
 # Import your parsing module
 # from your_module import parse_text
@@ -27,3 +28,5 @@ async def parse_jd(file: UploadFile = File(...)):
     with open(temp_path, "wb") as f:
         f.write(await file.read())
     return parse_document_with_llm(temp_path, JD_SCHEMA, "Job Description")
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8003)
