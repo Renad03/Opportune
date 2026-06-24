@@ -1521,13 +1521,13 @@ def start_server():
     import asyncio
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    config = uvicorn.Config(app, host="0.0.0.0", port=8002, loop="asyncio")
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, loop="asyncio")
     server = uvicorn.Server(config)
     loop.run_until_complete(server.serve())
 # ==============================
 # Start ngrok
 # ==============================
-def start_ngrok(port=8002):
+def start_ngrok(port=8000):
     ngrok.kill()
     time.sleep(2)
 
