@@ -1,30 +1,36 @@
-from neo4j import GraphDatabase
-from sentence_transformers import SentenceTransformer
-import ssl
+"""
+Configuration loaded from environment variables or a .env file.
+"""
 
-URI = "neo4j://be29599c.databases.neo4j.io"
-AUTH = ("be29599c", "Vvmm49Tbvs4_zdwXjvEA2-W_-0_Baw6sA__AgZdsL3g") # your password
-# Create an SSL context that ignores certificate verification
-ssl_context = ssl.create_default_context()
-ssl_context.check_hostname = False
-ssl_context.verify_mode = ssl.CERT_NONE
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
-driver = GraphDatabase.driver(
-    URI,
-    auth=AUTH,
-    ssl_context=ssl_context  # only needed if ignoring SSL
-)
 
-# Sentence transformer
-encoder = SentenceTransformer("all-MiniLM-L6-v2", device='cpu')
+class Settings(BaseSettings):
+    # Neo4j
+    neo4j_uri: str = Field(
+        default="neo4j+s://be29599c.databases.neo4j.io",
+        alias="NEO4J_URI",
+    )
+    neo4j_user: str = Field(default="be29599c", alias="NEO4J_USER")
+    neo4j_password: str = Field(
+        default="Vvmm49Tbvs4_zdwXjvEA2-W_-0_Baw6sA__AgZdsL3g",
+        alias="NEO4J_PASSWORD",
+    )
 
-# Experience mapping
-experience_map = {
-    "intern": 0,
-    "fresher": 1,
-    "junior": 2,
-    "mid": 3,
-    "senior": 4,
-    "lead": 5,
-    "unspecified": 0
-}
+    # Model checkpoint
+    checkpoint_path: str = Field(default="final_model.pt", alias="CHECKPOINT_PATH")
+
+    # Architecture (must match training)
+    hidden_dim: int = Field(default=128, alias="HIDDEN_DIM")
+    num_layers: int = Field(default=2, alias="NUM_LAYERS")
+    dropout: float = Field(default=0.2, alias="DROPOUT")
+
+    # Runtime
+    device: str = Field(default="cpu", alias="DEVICE")
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        populate_by_name=True,
+    )
