@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     checkpoint_path: str = Field(default="final_model.pt", alias="CHECKPOINT_PATH")
 
     # Architecture (must match training)
-    hidden_dim: int = Field(default=128, alias="HIDDEN_DIM")
-    num_layers: int = Field(default=2, alias="NUM_LAYERS")
+    hidden_dim: int = Field(default=256, alias="HIDDEN_DIM")
+    num_layers: int = Field(default=4, alias="NUM_LAYERS")
     dropout: float = Field(default=0.2, alias="DROPOUT")
 
     # Runtime
